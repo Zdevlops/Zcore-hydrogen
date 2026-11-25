@@ -69,7 +69,7 @@ jobs:
           export PYO3_NO_PYTHON=1
 
           cd rust_core
-          cargo build --release --target aarch64-linux-android
+          cargo build --release --target aarch64-linux-android --features pyo3/abi3-py310
           cp target/aarch64-linux-android/release/libzcore_bench_engine.so ../app/assets/libzcore_bench_engine.so
 
       - name: Build Debug APK with Buildozer
