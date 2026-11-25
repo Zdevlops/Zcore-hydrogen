@@ -9,10 +9,29 @@ on:
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Ekstrak & Siapkan Struktur Folder Otomatis
+        run: |
+          if [ -f "ZCore-Bench-Full-Repo.zip" ]; then
+            unzip -o ZCore-Bench-Full-Repo.zip -d temp_extract
+            cp -rn temp_extract/* ./ || true
+            rm -rf temp_extract
+          fi
+          mkdir -p rust_core/src app/android_bridge app/assets
+          find . -maxdepth 4 -name "Cargo.toml" ! -path "./rust_core/Cargo.toml" -exec mv -f {} rust_core/ \;
+          find . -maxdepth 4 -name "pyproject.toml" ! -path "./rust_core/pyproject.toml" -exec mv -f {} rust_core/ \;
+          find . -maxdepth 4 -name "lib.rs" ! -path "./rust_core/src/lib.rs" -exec mv -f {} rust_core/src/ \;
+          find . -maxdepth 4 -name "main.py" ! -path "./app/main.py" -exec mv -f {} app/ \;
+          for f in permissions.py shizuku_bridge.py device_advisor.py overlay_service.py __init__.py; do
+            find . -maxdepth 4 -name "$f" ! -path "./app/android_bridge/$f" -exec mv -f {} app/android_bridge/ \;
+          done
+          for rootfile in buildozer.spec requirements.txt; do
+            find . -maxdepth 4 -name "$rootfile" ! -path "./$rootfile" -exec mv -f {} ./ \;
+          done
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -27,7 +46,7 @@ jobs:
       - name: Install Build Dependencies & Android NDK
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev patchelf
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev patchelf
           pip install --upgrade pip buildozer cython==0.29.36 maturin ziglang
 
       - name: Setup Android NDK r25b
@@ -40,7 +59,6 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          mkdir -p app/assets
           cd rust_core
           maturin build --release --target aarch64-linux-android --zig -o ../dist_wheels
           cd ..
