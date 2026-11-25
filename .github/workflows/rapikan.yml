@@ -10,38 +10,39 @@ permissions:
 
 jobs:
   rapikan-repo:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Deep-Scan & Rapikan Semua Folder Otomatis
+      - name: Auto-Unzip & Rapikan Semua Folder
         run: |
+          # 1. Ekstrak otomatis file ZIP jika masih ada di repo
+          if [ -f "ZCore-Bench-Full-Repo.zip" ]; then
+            unzip -o ZCore-Bench-Full-Repo.zip -d temp_extract
+            cp -rn temp_extract/* ./ || true
+            cp -rn temp_extract/.gitignore ./ 2>/dev/null || true
+            rm -rf temp_extract ZCore-Bench-Full-Repo.zip
+          fi
+
+          # 2. Pastikan struktur folder standar tersedia
           mkdir -p rust_core/src app/android_bridge app/assets docs
 
-          # 1. Cari & pindahkan file Rust dari subfolder manapun ke rust_core/
+          # 3. Rapikan file yang mungkin masih terselip di subfolder
           find . -maxdepth 4 -name "Cargo.toml" ! -path "./rust_core/Cargo.toml" -exec mv -f {} rust_core/ \;
           find . -maxdepth 4 -name "pyproject.toml" ! -path "./rust_core/pyproject.toml" -exec mv -f {} rust_core/ \;
           find . -maxdepth 4 -name "lib.rs" ! -path "./rust_core/src/lib.rs" -exec mv -f {} rust_core/src/ \;
-
-          # 2. Cari & pindahkan file Python utama & bridge ke app/
           find . -maxdepth 4 -name "main.py" ! -path "./app/main.py" -exec mv -f {} app/ \;
+
           for f in permissions.py shizuku_bridge.py device_advisor.py overlay_service.py __init__.py; do
             find . -maxdepth 4 -name "$f" ! -path "./app/android_bridge/$f" -exec mv -f {} app/android_bridge/ \;
           done
 
-          # 3. Pindahkan file konfigurasi root (buildozer.spec, requirements.txt, README.md, .gitignore) ke root
           for rootfile in buildozer.spec requirements.txt README.md .gitignore; do
             find . -maxdepth 4 -name "$rootfile" ! -path "./$rootfile" -exec mv -f {} ./ \;
           done
 
-          # 4. Pindahkan file .md lain ke docs/
-          find . -maxdepth 3 -name "*.md" ! -name "README.md" ! -path "./docs/*" -exec mv -f {} docs/ \;
-
-          # 5. Pastikan folder app/assets tetap terlacak git
           touch app/assets/.gitkeep
-
-          # 6. Hapus folder kosong bekas ekstrak ZIP (kecuali .git dan .github)
           find . -mindepth 1 -maxdepth 3 -type d ! -path "./.git*" ! -path "./.github*" -empty -delete
 
       - name: Commit & Push Perubahan Struktur
@@ -50,9 +51,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "chore: auto-flatten & rapikan struktur folder repository"
+            git commit -m "chore: auto-unzip & rapikan struktur folder repository"
             git push
           else
-            echo "Semua file sudah berada di posisi yang benar."
+            echo "Struktur folder sudah rapi."
           fi
-concurrency: 
