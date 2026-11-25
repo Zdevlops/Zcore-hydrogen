@@ -21,7 +21,7 @@ jobs:
             cp -rn temp_extract/* ./ || true
             rm -rf temp_extract
           fi
-          mkdir -p rust_core/src app/android_bridge app/assets
+          mkdir -p rust_core/src app/android_bridge app/assets bin
           find . -maxdepth 4 -name "Cargo.toml" ! -path "./rust_core/Cargo.toml" -exec mv -f {} rust_core/ \;
           find . -maxdepth 4 -name "pyproject.toml" ! -path "./rust_core/pyproject.toml" -exec mv -f {} rust_core/ \;
           find . -maxdepth 4 -name "lib.rs" ! -path "./rust_core/src/lib.rs" -exec mv -f {} rust_core/src/ \;
@@ -60,6 +60,7 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          SYSROOT_LIB="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/26"
           export PATH="$TOOLCHAIN:$PATH"
           export CC_aarch64_linux_android="$TOOLCHAIN/aarch64-linux-android26-clang"
           export AR_aarch64_linux_android="$TOOLCHAIN/llvm-ar"
@@ -67,15 +68,24 @@ jobs:
           export PYO3_CROSS=1
           export PYO3_CROSS_PYTHON_VERSION=3.10
           export PYO3_NO_PYTHON=1
-          export RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined"
+          export RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined -L native=$SYSROOT_LIB"
+
+          # Buat stub shared library libpython3.10.so agar NDK linker tidak gagal mencari -lpython3.10
+          "$TOOLCHAIN/aarch64-linux-android26-clang" -shared -x c /dev/null -o "$SYSROOT_LIB/libpython3.10.so"
 
           cd rust_core
-          sed -i 's/features = \["extension-module"\]/features = ["extension-module", "abi3-py310"]/' Cargo.toml
+          rm -f Cargo.lock
+          sed -i 's/features = \["extension-module"\]/features = ["abi3-py310"]/' Cargo.toml
           cargo build --release --target aarch64-linux-android
           cp target/aarch64-linux-android/release/libzcore_bench_engine.so ../app/assets/libzcore_bench_engine.so
 
       - name: Build Debug APK with Buildozer
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          BUILDOZER_WARN_ON_ROOT: "0"
         run: |
+          sed -i "s|# android.ndk_path =|android.ndk_path = $ANDROID_NDK_HOME|g" buildozer.spec
+          sed -i "s|android.ndk = 25b|android.ndk = 25b\nandroid.ndk_path = $ANDROID_NDK_HOME\nandroid.accept_sdk_license = True|g" buildozer.spec
           yes | buildozer -v android debug
 
       - name: Upload APK Artifact
