@@ -1,0 +1,50 @@
+name: Rapikan Struktur Folder Repo Otomatis
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rapikan-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Rapikan & Kelompokkan File Otomatis
+        run: |
+          mkdir -p rust_core/src app/android_bridge app/assets docs
+
+          # Pindahkan file Rust ke rust_core/
+          [ -f Cargo.toml ] && mv Cargo.toml rust_core/
+          [ -f pyproject.toml ] && mv pyproject.toml rust_core/
+          [ -f lib.rs ] && mv lib.rs rust_core/src/
+
+          # Pindahkan file Python UI & Bridge ke app/
+          [ -f main.py ] && mv main.py app/
+          for f in permissions.py shizuku_bridge.py device_advisor.py overlay_service.py __init__.py; do
+            [ -f "$f" ] && mv "$f" app/android_bridge/
+          done
+
+          # Pindahkan dokumentasi ke docs/
+          for f in *.md; do
+            if [ -f "$f" ] && [ "$f" != "README.md" ]; then
+              mv "$f" docs/
+            fi
+          done
+
+      - name: Commit & Push Perubahan Struktur
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: rapikan struktur folder repository otomatis"
+            git push
+          else
+            echo "Struktur folder sudah rapi."
+          fi
