@@ -47,7 +47,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev patchelf
-          pip install --upgrade pip buildozer cython==0.29.36 maturin
+          pip install --upgrade "pip<24.1" "setuptools<70.0.0" wheel buildozer cython==0.29.36 maturin
 
       - name: Setup Android NDK r25b
         uses: nttld/setup-ndk@v1
@@ -70,7 +70,6 @@ jobs:
           export PYO3_NO_PYTHON=1
           export RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined -L native=$SYSROOT_LIB"
 
-          # Buat stub shared library libpython3.10.so agar NDK linker tidak gagal mencari -lpython3.10
           "$TOOLCHAIN/aarch64-linux-android26-clang" -shared -x c /dev/null -o "$SYSROOT_LIB/libpython3.10.so"
 
           cd rust_core
@@ -84,9 +83,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           BUILDOZER_WARN_ON_ROOT: "0"
         run: |
-          sed -i "s|# android.ndk_path =|android.ndk_path = $ANDROID_NDK_HOME|g" buildozer.spec
-          sed -i "s|android.ndk = 25b|android.ndk = 25b\nandroid.ndk_path = $ANDROID_NDK_HOME\nandroid.accept_sdk_license = True|g" buildozer.spec
-          yes | buildozer -v android debug
+          sed -i "s|requirements = .*|requirements = python3,kivy==2.3.0,https://github.com/kivymd/KivyMD/archive/master.zip,pyjnius|g" buildozer.spec
+          sed -i "s|android.ndk = 25b|android.ndk = 25b\nandroid.ndk_path = $ANDROID_NDK_HOME\nandroid.accept_sdk_license = True\np4a.branch = master|g" buildozer.spec
+          buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
