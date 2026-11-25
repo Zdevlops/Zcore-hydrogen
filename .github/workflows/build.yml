@@ -47,7 +47,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev patchelf
-          pip install --upgrade pip buildozer cython==0.29.36 maturin ziglang
+          pip install --upgrade pip buildozer cython==0.29.36 maturin
 
       - name: Setup Android NDK r25b
         uses: nttld/setup-ndk@v1
@@ -59,10 +59,16 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          export PATH="$TOOLCHAIN:$PATH"
+          export CC_aarch64_linux_android="$TOOLCHAIN/aarch64-linux-android26-clang"
+          export AR_aarch64_linux_android="$TOOLCHAIN/llvm-ar"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$TOOLCHAIN/aarch64-linux-android26-clang"
+          export PYO3_CROSS_LIB_DIR="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/26"
+
           cd rust_core
-          maturin build --release --target aarch64-linux-android --zig -o ../dist_wheels
-          cd ..
-          python3 -c "import zipfile, glob; z=zipfile.ZipFile(glob.glob('dist_wheels/*.whl')[0]); [open('app/assets/libzcore_bench_engine.so','wb').write(z.read(f)) for f in z.namelist() if f.endswith('.so')]"
+          cargo build --release --target aarch64-linux-android
+          cp target/aarch64-linux-android/release/libzcore_bench_engine.so ../app/assets/libzcore_bench_engine.so
 
       - name: Build Debug APK with Buildozer
         run: |
