@@ -1,0 +1,57 @@
+name: Build Android APK (Rust + Python)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Rust Toolchain & Android ARM64 Target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Install Build Dependencies & Android NDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev patchelf
+          pip install --upgrade pip buildozer cython==0.29.36 maturin ziglang
+
+      - name: Setup Android NDK r25b
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25b
+
+      - name: Compile Rust Core (.so) for Android arm64-v8a
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          mkdir -p app/assets
+          cd rust_core
+          maturin build --release --target aarch64-linux-android --zig -o ../dist_wheels
+          cd ..
+          python3 -c "import zipfile, glob; z=zipfile.ZipFile(glob.glob('dist_wheels/*.whl')[0]); [open('app/assets/libzcore_bench_engine.so','wb').write(z.read(f)) for f in z.namelist() if f.endswith('.so')]"
+
+      - name: Build Debug APK with Buildozer
+        run: |
+          yes | buildozer -v android debug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZCore-Bench-APK
+          path: bin/*.apk
