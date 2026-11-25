@@ -1,0 +1,11 @@
+# Buildozer & Python
+.buildozer/
+bin/
+__pycache__/
+*.py[cod]
+dist_wheels/
+
+# Rust target artifacts
+rust_core/target/
+*.so
+!app/assets/.gitkeep

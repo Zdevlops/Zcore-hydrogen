@@ -1,0 +1,15 @@
+[package]
+name = "zcore_bench_engine"
+version = "1.0.0"
+edition = "2021"
+authors = ["Zdevlops"]
+description = "High-performance Rust telemetry, benchmark & throttling engine for Android (PyO3)"
+
+[lib]
+name = "zcore_bench_engine"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21.2", features = ["extension-module"] }
+rayon = "1.10.0"
+sysinfo = "0.30.12"
