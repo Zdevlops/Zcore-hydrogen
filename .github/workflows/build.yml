@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-apk:
+  build-rust:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
@@ -19,7 +19,7 @@ jobs:
             cp -rn temp_extract/* ./ || true
             rm -rf temp_extract
           fi
-          mkdir -p rust_core/src app/android_bridge app/assets bin
+          mkdir -p rust_core/src app/android_bridge app/assets
           find . -maxdepth 4 -name "Cargo.toml" ! -path "./rust_core/Cargo.toml" -exec mv -f {} rust_core/ \;
           find . -maxdepth 4 -name "pyproject.toml" ! -path "./rust_core/pyproject.toml" -exec mv -f {} rust_core/ \;
           find . -maxdepth 4 -name "lib.rs" ! -path "./rust_core/src/lib.rs" -exec mv -f {} rust_core/src/ \;
@@ -65,16 +65,34 @@ jobs:
           cargo build --release --target aarch64-linux-android
           cp target/aarch64-linux-android/release/libzcore_bench_engine.so ../app/assets/libzcore_bench_engine.so
 
-      - name: Siapkan buildozer.spec
+      - name: Upload Prepared Workspace
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-workspace
+          path: |
+            app/
+            buildozer.spec
+            requirements.txt
+
+  build-apk:
+    needs: build-rust
+    runs-on: ubuntu-22.04
+    container:
+      image: kivy/buildozer:latest
+      options: --user root
+    steps:
+      - name: Download Prepared Workspace
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-workspace
+
+      - name: Build Debug APK
         run: |
+          mkdir -p bin
           sed -i "s|requirements = .*|requirements = python3,kivy==2.3.0,kivymd==1.1.1,pillow,pyjnius|g" buildozer.spec
           sed -i "s|android.api = 34|android.api = 33|g" buildozer.spec
-
-      - name: Build APK via Official Kivy Buildozer Action
-        uses: kivy/buildozer-action@v1
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
+          sed -i "s|warn_on_root = 1|warn_on_root = 0|g" buildozer.spec
+          buildozer -v android debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
