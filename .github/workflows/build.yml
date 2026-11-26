@@ -92,6 +92,7 @@ jobs:
           sed -i "s|requirements = .*|requirements = python3,kivy==2.3.0,kivymd==1.1.1,pillow,pyjnius|g" buildozer.spec
           sed -i "s|android.api = 34|android.api = 33|g" buildozer.spec
           sed -i "s|warn_on_root = 1|warn_on_root = 0|g" buildozer.spec
+          sed -i '/\[app\]/a android.accept_sdk_license = True' buildozer.spec
           buildozer -v android debug
 
       - name: Upload APK Artifact
